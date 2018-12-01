@@ -1,7 +1,10 @@
 import socket
 import re
+import quopri
+import base64
 from abc import ABCMeta, abstractmethod
-from new_good_imap import decode_strings
+text_regex = re.compile('.+?charset=\"(.+?)\"(\r\nContent-Transfer-Encoding: (.+?))?\r\n\r\n(.+?)\r\n.+?', re.DOTALL)
+envelope_regex = re.compile('.+?FETCH \(ENVELOPE \("(.+?)" "(=\?(.+?)\?(B|Q)\?)?(.+?)".+?NIL "(.+?)" "(.+?)".+?', re.DOTALL)
 
 
 class Command(metaclass=ABCMeta):
@@ -76,28 +79,32 @@ class Fetch(Command):
 
     def process_data(self, data, part):
         if part == 'BODY[TEXT]':
-            text = re.match(
-                '.+?charset=\"(.+?)\"(\r\nContent-Transfer-Encoding: (.+?))?\r\n\r\n(.+?)\r\n.+?',
-                data, re.DOTALL)
-            if text.group(3):
-                text = decode_strings(text.group(4), text.group(3))
-            else:
-                text = text.group(4)
-            return text
+            return self.parse_text(data)
         if part == 'ENVELOPE':
-            envelope = re.match(
-                '.+?FETCH \(ENVELOPE \("(.+?)" "(=\?(.+?)\?(B|Q)\?)?(.+?)".+?NIL "(.+?)" "(.+?)".+?',
-                data, re.DOTALL)
-            if envelope.group(2):
-                theme = decode_strings(envelope.group(5), envelope.group(4))
-            else:
-                theme = envelope.group(5)
-            date = envelope.group(1)
-            sender = envelope.group(6) + '@' + envelope.group(7)
+            date, theme, sender = self.parse_envelope(data)
             return date, theme, sender
 
+    def parse_text(self, data):
+        text = text_regex.match(data)
+        if text.group(3):
+            text = self.decode_strings(text.group(4), text.group(3))
+        else:
+            text = text.group(4)
+        return text
 
+    def parse_envelope(self, data):
+        envelope = envelope_regex.match(data)
+        if envelope.group(2):
+            theme = self.decode_strings(envelope.group(5), envelope.group(4))
+        else:
+            theme = envelope.group(5)
+        date = envelope.group(1)
+        sender = envelope.group(6) + '@' + envelope.group(7)
+        return date, theme, sender
 
-
-
-
+    @staticmethod
+    def decode_strings(string, encoding):
+        if encoding == 'base64' or encoding == 'B':
+            return base64.decodebytes(string.encode()).decode()
+        if encoding == 'Q':
+            return quopri.decodestring(string.encode()).decode()
