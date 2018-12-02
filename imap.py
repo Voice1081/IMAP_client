@@ -11,7 +11,9 @@ class imap_client:
         self.login = command.Login(self.sock)
         self.select = command.Select(self.sock)
         self.fetch = command.Fetch(self.sock)
+        self.list = command.List(self.sock)
         self.login.execute(login, password)
+        self.folders = self.list.execute()
         self.emails = {}
 
     @staticmethod
@@ -42,3 +44,12 @@ class imap_client:
             self.emails[name][i-1]['theme'] = theme
             self.emails[name][i-1]['sender'] = sender
             self.emails[name][i-1]['id'] = i
+
+
+def main():
+    a = imap_client('test12316@yandex.ru', 'test108!')
+    a.get_emails()
+
+
+if __name__ == '__main__':
+    main()

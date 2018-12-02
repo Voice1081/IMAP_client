@@ -5,6 +5,7 @@ import base64
 from abc import ABCMeta, abstractmethod
 text_regex = re.compile('.+?charset=\"(.+?)\"(\r\nContent-Transfer-Encoding: (.+?))?\r\n\r\n(.+?)\r\n.+?', re.DOTALL)
 envelope_regex = re.compile('.+?FETCH \(ENVELOPE \("(.+?)" "(=\?(.+?)\?(B|Q)\?)?(.+?)".+?NIL "(.+?)" "(.+?)".+?', re.DOTALL)
+list_regex = re.compile('.+? "\|" (.+)')
 
 
 class Command(metaclass=ABCMeta):
@@ -26,6 +27,16 @@ class Command(metaclass=ABCMeta):
                 break
         Command.counter += 1
         return data
+
+    @staticmethod
+    def decode_strings(string, encoding, text_encoding):
+        if encoding == 'base64' or encoding == 'B':
+            string += '=' * (len(string) % 2)
+            return base64.decodebytes(string.encode(text_encoding))\
+                .decode(text_encoding)
+        if encoding == 'Q':
+            return quopri.decodestring(string.encode(text_encoding))\
+                .decode(text_encoding)
 
     @abstractmethod
     def execute(self, *args):
@@ -87,7 +98,8 @@ class Fetch(Command):
     def parse_text(self, data):
         text = text_regex.match(data)
         if text.group(3):
-            text = self.decode_strings(text.group(4), text.group(3))
+            text = self.decode_strings(text.group(4), text.group(3),
+                                       text.group(1))
         else:
             text = text.group(4)
         return text
@@ -95,16 +107,35 @@ class Fetch(Command):
     def parse_envelope(self, data):
         envelope = envelope_regex.match(data)
         if envelope.group(2):
-            theme = self.decode_strings(envelope.group(5), envelope.group(4))
+            theme = self.decode_strings(envelope.group(5), envelope.group(4),
+                                        envelope.group(3))
         else:
             theme = envelope.group(5)
         date = envelope.group(1)
         sender = envelope.group(6) + '@' + envelope.group(7)
         return date, theme, sender
 
-    @staticmethod
-    def decode_strings(string, encoding):
-        if encoding == 'base64' or encoding == 'B':
-            return base64.decodebytes(string.encode()).decode()
-        if encoding == 'Q':
-            return quopri.decodestring(string.encode()).decode()
+
+class List(Command):
+
+    def make_command(self):
+        return 'LIST \"\" \"*\"'
+
+    def execute(self):
+        data = super().get_data()
+        return self.process_data(data)
+
+    def process_data(self, data):
+        lines = data.splitlines()[:-1]
+        names = []
+        for line in lines:
+            encoded_name = list_regex.match(line).group(1)
+            if encoded_name[0] == '\"':
+                decoded_name = self\
+                    .decode_strings(encoded_name
+                                    .strip('"')
+                                    .replace(',', '/'), 'base64', 'UTF-16BE')
+            else:
+                decoded_name = encoded_name
+            names.append((decoded_name, encoded_name))
+        return names
