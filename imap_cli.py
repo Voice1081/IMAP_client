@@ -37,6 +37,9 @@ class imap_client_cli:
         print(self.folders_list)
         number = int(input('Choose folder you want to enter: '))
         folder = self.client.folders[number-1][1]
+        append = input('Do you want to append new email in this folder?[yes/no]')
+        if append == 'yes':
+            self.append(folder)
         self.choose_email(folder)
 
     def choose_email(self, folder):
@@ -51,6 +54,11 @@ class imap_client_cli:
         get_back = input('Would you like to return to emails list?[yes/no]')
         if get_back == 'yes':
             self.choose_email(folder)
+
+    def append(self, folder):
+        self.client.select.execute(folder)
+        message = input('Print your message: ')
+        self.client.append.execute(folder, message)
 
 
 def main():

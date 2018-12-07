@@ -12,6 +12,7 @@ class imap_client:
         self.select = command.Select(self.sock)
         self.fetch = command.Fetch(self.sock)
         self.list = command.List(self.sock)
+        self.append = command.Append(self.sock)
         self.login.execute(login, password)
         self.folders = self.list.execute()
         self.emails = {}
@@ -44,12 +45,3 @@ class imap_client:
             self.emails[name][i-1]['theme'] = theme
             self.emails[name][i-1]['sender'] = sender
             self.emails[name][i-1]['id'] = i
-
-
-def main():
-    a = imap_client('test12316@yandex.ru', 'test108!')
-    a.get_emails()
-
-
-if __name__ == '__main__':
-    main()

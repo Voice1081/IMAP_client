@@ -139,3 +139,22 @@ class List(Command):
                 decoded_name = encoded_name
             names.append((decoded_name, encoded_name))
         return names
+
+
+class Append(Command):
+
+    def make_command(self, mailbox, message):
+        message = 'Subject: hello world\r\n\To: myemail@email.com'
+        return 'APPEND {0} (\Seen) '.format(mailbox) + '{' + str(len(message.encode())) + '}'
+
+    def send_message(self, message):
+        self.sock.sendall('{{0}}'.format(message).encode())
+        self.sock.sendall('\r\n'.encode())
+
+    def execute(self, mailbox, message):
+        data = super().get_data(mailbox, message)
+        self.process_data(data)
+        self.send_message(message)
+
+    def process_data(self, data):
+        print(data)
