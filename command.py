@@ -4,7 +4,7 @@ import quopri
 import base64
 from abc import ABCMeta, abstractmethod
 text_regex = re.compile('.+?charset=\"(.+?)\"(\r\nContent-Transfer-Encoding: (.+?))?\r\n\r\n(.+?)\r\n.+?', re.DOTALL)
-append_text_regex = re.compile('.+?FETCH \d.+? <BODY\[TEXT] {\d.+?}\r\n(.+?)\r\n>', re.DOTALL)
+append_text_regex = re.compile('.+? FETCH \(BODY\[TEXT] {\d.+?}..(.+?)..\)', re.DOTALL)
 envelope_regex = re.compile('.+?FETCH \(ENVELOPE \("(.+?)" "(=\?(.+?)\?(B|Q)\?)?(.+?)".+?NIL "(.+?)" "(.+?)".+?', re.DOTALL)
 list_regex = re.compile('.+? "\|" (.+)')
 
