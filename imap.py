@@ -49,4 +49,6 @@ class imap_client:
     def get_attachment(self, uid):
         filenames = self.fetch.execute(uid, part='BODYSTRUCTURE')
         for i in range(0, len(filenames)):
-
+            file = self.fetch.execute(uid, 'BODY[{}]'.format(i + 2))
+            with open(filenames[i], 'wb') as f:
+                f.write(file)

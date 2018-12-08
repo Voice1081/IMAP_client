@@ -89,14 +89,26 @@ class Fetch(Command):
 
     def execute(self, number, part='BODY[TEXT]'):
         if get_file_regex.match(part):
-            return self.get_file(part)
+            return self.get_file(number, part)
         data = super().get_data(number, part)
         return self.process_data(data, part)
 
-    def get_file(self, part):
+    def get_file(self, uid, part):
         self.sock.sendall(
-            ('a' + str(Command.counter) + ' ' + 'FETCH {}\r\n')
-            .format(part).encode())
+            ('a' + str(Command.counter) + ' ' + 'FETCH {0} {1}\r\n')
+            .format(uid, part).encode())
+        data = b''
+        while True:
+            try:
+                data += self.sock.recv(1024)
+            except socket.timeout:
+                break
+        lines = data.split(b'\r\n')[1:-2]
+        file = b''
+        for line in lines:
+            file += line
+        Command.counter += 1
+        return base64.decodebytes(file)
 
     def process_data(self, data, part):
         if part == 'BODY[TEXT]':
@@ -106,7 +118,6 @@ class Fetch(Command):
             return date, theme, sender
         if part == 'BODYSTRUCTURE':
             return filenames_regex.findall(data)
-
 
     def parse_text(self, data):
         text = text_regex.match(data)

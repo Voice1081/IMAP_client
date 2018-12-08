@@ -51,6 +51,9 @@ class imap_client_cli:
             self.choose_folder()
         number = int(input('Choose email you want to read: '))
         print(self.make_email_string(folder, number))
+        get_files = input('Would you like to download attachments?[yes/no]')
+        if get_files == 'yes':
+            self.client.get_attachment(number)
         get_back = input('Would you like to return to emails list?[yes/no]')
         if get_back == 'yes':
             self.choose_email(folder)
