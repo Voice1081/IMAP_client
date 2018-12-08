@@ -4,6 +4,7 @@ import quopri
 import base64
 from abc import ABCMeta, abstractmethod
 text_regex = re.compile('.+?charset=\"(.+?)\"(\r\nContent-Transfer-Encoding: (.+?))?\r\n\r\n(.+?)\r\n.+?', re.DOTALL)
+append_text_regex = re.compile('.+?FETCH \d.+? <BODY\[TEXT] {\d.+?}\r\n(.+?)\r\n>', re.DOTALL)
 envelope_regex = re.compile('.+?FETCH \(ENVELOPE \("(.+?)" "(=\?(.+?)\?(B|Q)\?)?(.+?)".+?NIL "(.+?)" "(.+?)".+?', re.DOTALL)
 list_regex = re.compile('.+? "\|" (.+)')
 
@@ -97,6 +98,8 @@ class Fetch(Command):
 
     def parse_text(self, data):
         text = text_regex.match(data)
+        if text is None:
+            return append_text_regex.match(data).group(1)
         if text.group(3):
             text = self.decode_strings(text.group(4), text.group(3),
                                        text.group(1))
@@ -143,18 +146,28 @@ class List(Command):
 
 class Append(Command):
 
-    def make_command(self, mailbox, message):
-        message = 'Subject: hello world\r\n\To: myemail@email.com'
-        return 'APPEND {0} (\Seen) '.format(mailbox) + '{' + str(len(message.encode())) + '}'
+    def make_command(self, mailbox, message, sender, receiver, subject):
+        msg_len = self.get_message_len(message, sender, receiver, subject)
+        return 'APPEND {0} (\Seen) '.format(mailbox) + '{' + str(msg_len) + '}'
 
-    def send_message(self, message):
-        self.sock.sendall('{{0}}'.format(message).encode())
+    def send_message(self, message, sender, receiver, subject):
+        self.sock.sendall('From: {}\r\n'.format(sender).encode())
+        self.sock.sendall('To: {}\r\n'.format(receiver).encode())
+        self.sock.sendall('Subject: {}\r\n'.format(subject).encode())
+        self.sock.sendall('Content-Type: TEXT/PLAIN; CHARSET=UTF-8\r\n'.encode())
         self.sock.sendall('\r\n'.encode())
+        self.sock.sendall('{0}\r\n'.format(message).encode())
+        self.sock.sendall('\r\n'.encode())
+        self.sock.recv(1024)
+        self.sock.recv(1024)
 
-    def execute(self, mailbox, message):
-        data = super().get_data(mailbox, message)
-        self.process_data(data)
-        self.send_message(message)
+    @staticmethod
+    def get_message_len(message, sender, receiver, subject):
+        return len(sender) + len(receiver) + len(subject) + len(message) + 70
 
-    def process_data(self, data):
-        print(data)
+    def execute(self, mailbox, message, sender, receiver, subject):
+        super().get_data(mailbox, message, sender, receiver, subject)
+        self.send_message(message, sender, receiver, subject)
+
+    def process_data(self):
+        pass

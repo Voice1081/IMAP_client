@@ -57,8 +57,11 @@ class imap_client_cli:
 
     def append(self, folder):
         self.client.select.execute(folder)
+        sender = input('Print sender: ')
+        receiver = input('Print receiver: ')
+        subject = input('Print subject: ')
         message = input('Print your message: ')
-        self.client.append.execute(folder, message)
+        self.client.append.execute(folder, message, sender, receiver, subject)
 
 
 def main():
