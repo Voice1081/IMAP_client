@@ -7,6 +7,8 @@ text_regex = re.compile('.+?charset=\"(.+?)\"(\r\nContent-Transfer-Encoding: (.+
 append_text_regex = re.compile('.+? FETCH \(BODY\[TEXT] {\d.+?}..(.+?)..\)', re.DOTALL)
 envelope_regex = re.compile('.+?FETCH \(ENVELOPE \("(.+?)" "(=\?(.+?)\?(B|Q)\?)?(.+?)".+?NIL "(.+?)" "(.+?)".+?', re.DOTALL)
 list_regex = re.compile('.+? "\|" (.+)')
+filenames_regex = re.compile(r'"attachment" \("filename" "(.+?)"\)')
+get_file_regex = re.compile('BODY\[\d+?]')
 
 
 class Command(metaclass=ABCMeta):
@@ -86,8 +88,15 @@ class Fetch(Command):
         return 'FETCH {} '.format(str(number)) + part
 
     def execute(self, number, part='BODY[TEXT]'):
+        if get_file_regex.match(part):
+            return self.get_file(part)
         data = super().get_data(number, part)
         return self.process_data(data, part)
+
+    def get_file(self, part):
+        self.sock.sendall(
+            ('a' + str(Command.counter) + ' ' + 'FETCH {}\r\n')
+            .format(part).encode())
 
     def process_data(self, data, part):
         if part == 'BODY[TEXT]':
@@ -95,6 +104,9 @@ class Fetch(Command):
         if part == 'ENVELOPE':
             date, theme, sender = self.parse_envelope(data)
             return date, theme, sender
+        if part == 'BODYSTRUCTURE':
+            return filenames_regex.findall(data)
+
 
     def parse_text(self, data):
         text = text_regex.match(data)

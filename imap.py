@@ -45,3 +45,8 @@ class imap_client:
             self.emails[name][i-1]['theme'] = theme
             self.emails[name][i-1]['sender'] = sender
             self.emails[name][i-1]['id'] = i
+
+    def get_attachment(self, uid):
+        filenames = self.fetch.execute(uid, part='BODYSTRUCTURE')
+        for i in range(0, len(filenames)):
+
