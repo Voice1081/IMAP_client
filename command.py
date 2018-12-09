@@ -194,3 +194,25 @@ class Append(Command):
 
     def process_data(self):
         pass
+
+
+class Store(Command):
+    def make_command(self, uid):
+        return 'STORE {} +FLAGS (\Deleted)'.format(uid)
+
+    def process_data(self, *args):
+        pass
+
+    def execute(self, uid):
+        super().get_data(uid)
+
+
+class Expunge(Command):
+    def make_command(self):
+        return 'EXPUNGE'
+
+    def process_data(self):
+        pass
+
+    def execute(self):
+        super().get_data()

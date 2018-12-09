@@ -13,6 +13,8 @@ class imap_client:
         self.fetch = command.Fetch(self.sock)
         self.list = command.List(self.sock)
         self.append = command.Append(self.sock)
+        self.store = command.Store(self.sock)
+        self.expunge = command.Expunge(self.sock)
         self.login.execute(login, password)
         self.folders = self.list.execute()
         self.emails = {}
@@ -26,7 +28,7 @@ class imap_client:
     def get_socket(domain):
         sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         sock = ssl.wrap_socket(sock, ssl_version=ssl.PROTOCOL_SSLv23)
-        sock.settimeout(3)
+        sock.settimeout(0.5)
         sock.connect(("imap.{}".format(domain), 993))
         data = (sock.recv(1024)).decode()
         if data.split(' ')[1] != 'OK':
@@ -45,10 +47,17 @@ class imap_client:
             self.emails[name][i-1]['theme'] = theme
             self.emails[name][i-1]['sender'] = sender
             self.emails[name][i-1]['id'] = i
+            self.emails[name][i - 1]['filenames'] = \
+                self.fetch.execute(i, part='BODYSTRUCTURE')
 
-    def get_attachment(self, uid):
-        filenames = self.fetch.execute(uid, part='BODYSTRUCTURE')
+    def get_attachment(self, folder, uid):
+        filenames = self.emails[folder][uid-1]['filenames']
         for i in range(0, len(filenames)):
             file = self.fetch.execute(uid, 'BODY[{}]'.format(i + 2))
             with open(filenames[i], 'wb') as f:
                 f.write(file)
+
+    def delete_email(self, folder, uid):
+        self.store.execute(uid)
+        self.expunge.execute()
+        self.emails[folder].pop(uid-1)
