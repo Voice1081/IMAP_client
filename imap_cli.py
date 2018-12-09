@@ -4,9 +4,11 @@ from imap import imap_client
 
 class imap_client_cli:
     def __init__(self):
+        ip = input('Insert server ip: ')
+        port = int(input('Insert server port: '))
         login = input('Insert your login: ')
         password = getpass.getpass('Insert your password: ')
-        self.client = imap_client(login, password)
+        self.client = imap_client(ip, port, login, password)
         self.folders_list = self.make_folder_list()
         self.emails_list = {}
         self.choose_folder()

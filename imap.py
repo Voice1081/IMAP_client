@@ -5,9 +5,8 @@ import command
 
 
 class imap_client:
-    def __init__(self, login, password):
-        domain = self.get_domain(login)
-        self.sock = self.get_socket(domain)
+    def __init__(self, ip, port, login, password):
+        self.sock = self.get_socket(ip, port)
         self.login = command.Login(self.sock)
         self.select = command.Select(self.sock)
         self.fetch = command.Fetch(self.sock)
@@ -20,16 +19,11 @@ class imap_client:
         self.emails = {}
 
     @staticmethod
-    def get_domain(login):
-        domain = re.match('(.+?)@(.+)', login).group(2)
-        return domain
-
-    @staticmethod
-    def get_socket(domain):
+    def get_socket(ip, port):
         sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         sock = ssl.wrap_socket(sock, ssl_version=ssl.PROTOCOL_SSLv23)
         sock.settimeout(0.5)
-        sock.connect(("imap.{}".format(domain), 993))
+        sock.connect((ip, port))
         data = (sock.recv(1024)).decode()
         if data.split(' ')[1] != 'OK':
             raise Exception('Can not connect to the server')
