@@ -1,23 +1,92 @@
 import getpass
-from imap import imap_client
+from argparse import ArgumentParser
+from imap import ImapClient
 
 
-class imap_client_cli:
+class ImapClientCLI:
     def __init__(self):
-        ip = input('Insert server ip: ')
-        port = int(input('Insert server port: '))
-        login = input('Insert your login: ')
+        parser = ArgumentParser()
+        parser.add_argument('-ip', '--ip', dest='ip',
+                            action='store', required=True,
+                            help='Input IMAP server IP',
+                            metavar='IP')
+        parser.add_argument('-p', '--port', dest='port', action='store',
+                            required=True, help='Input IMAP server port',
+                            metavar='PORT')
+        parser.add_argument('-l', '--login', dest='login', action='store',
+                            required=True, help='Input your login',
+                            metavar='LOGIN')
+        parser.add_argument('-a', '--append',
+                            help="Use this flag if you want "
+                                      "to append new email",
+                            action='store_true', required=False)
+        subparsers = parser.add_subparsers(dest='subparser_name')
+        append_parser = subparsers.add_parser('append')
+        append_parser.add_argument('-f', '--folder', dest='folder',
+                                   action='store',
+                                   required=True,
+                                   help='Input folder to append email')
+        append_parser.add_argument('-m', '--message', dest='message',
+                                   action='store', required=True,
+                                   help='Input message')
+        append_parser.add_argument('-s', '--sender', dest='sender',
+                                   action='store', required=True,
+                                   help='Input sender')
+        append_parser.add_argument('-r', '--receiver', dest='receiver',
+                                   action='store', required=True,
+                                   help='Input receiver')
+        append_parser.add_argument('-t', '--theme', dest='theme',
+                                   action='store', required=True,
+                                   help='Input theme')
+        delete_parser = subparsers.add_parser('delete')
+        delete_parser.add_argument('-f', '--folder', dest='folder',
+                                   action='store', required=True,
+                                   help='Input folder where you want '
+                                        'to delete email')
+        delete_parser.add_argument('-n', '--number', dest='number',
+                                   action='store', required=True,
+                                   help='Input number of email '
+                                        'you want to delete', type=int)
+        download_parser = subparsers.add_parser('download')
+        download_parser.add_argument('-f', '--folder', dest='folder',
+                                     action='store', required=True,
+                                     help='Input folder where you want '
+                                     'to download applications')
+        download_parser.add_argument('-n', '--number', dest='number',
+                                     action='store', required=True,
+                                     help='Input number of email from which '
+                                           'you want to download applications',
+                                     type=int)
         password = getpass.getpass('Insert your password: ')
-        self.client = imap_client(ip, port, login, password)
+        args = parser.parse_args()
+        self.client = ImapClient(args.ip, args.port, args.login, password)
         self.folders_list = self.make_folder_list()
-        self.emails_list = {}
-        self.choose_folder()
+        if args.subparser_name == 'append':
+            self.client.select.execute(args.folder)
+            self.client.append.execute(self.folders_list[args.folder],
+                                       args.message, args.sender,
+                                       args.receiver,
+                                       args.theme)
+        elif args.subparser_name == 'delete':
+            self.client.delete_email(self.folders_list[args.folder],
+                                     args.number)
+        elif args.subparser_name == 'download':
+            self.client.get_attachment(self.folders_list[args.folder],
+                                       args.number)
+        else:
+            s = ''
+            for folder in self.folders_list:
+                self.client.get_emails(self.folders_list[folder])
+                s += folder + '\n\n' + \
+                    self.make_emails_list(self.folders_list[folder])
+                with open('emails.txt', 'w') as f:
+                    f.write(s)
 
     def make_folder_list(self):
-        s = ''
+        folders_list = {}
         for i in range(0, len(self.client.folders)):
-            s += '{0}. {1}\n'.format(i+1, self.client.folders[i][0])
-        return s
+            folders_list[self.client.folders[i][0]] = self.client.folders[i][1]
+        return folders_list
 
     def make_emails_list(self, folder):
         if folder not in self.client.emails:
@@ -27,60 +96,14 @@ class imap_client_cli:
             s += '{0}. {1}   {2}   {3}\n'.format(email['id'],
                                                  email['sender'],
                                                  email['theme'],
-                                                 email['text'][0:20])
-        self.emails_list[folder] = s
-
-    def make_email_string(self, folder, number):
-        email = self.client.emails[folder][number - 1]
-        s = '{0} {1}   {2}   {3}'.format(email['date'], email['sender'],
-                                         email['theme'], email['text'])
-        for filename in email['filenames']:
-            s += filename + '\n'
+                                                 email['text'])
+            for filename in email['filenames']:
+                s += filename + '\n'
         return s
-
-    def choose_folder(self):
-        print(self.folders_list)
-        number = int(input('Choose folder you want to enter: '))
-        folder = self.client.folders[number-1][1]
-        append = \
-            input('Do you want to append new email in this folder?[yes/no]')
-        if append == 'yes':
-            self.append(folder)
-        self.choose_email(folder)
-
-    def choose_email(self, folder):
-        if folder not in self.emails_list:
-            self.make_emails_list(folder)
-        print(self.emails_list[folder])
-        get_back = input('Would you like to return to folder list?[yes/no]')
-        if get_back == 'yes':
-            self.choose_folder()
-        number = int(input('Choose email you want to read: '))
-        print(self.make_email_string(folder, number))
-        if len(self.client.emails[folder][number-1]['filenames']) > 0:
-            get_files = \
-                input('Would you like to download attachments?[yes/no]')
-            if get_files == 'yes':
-                self.client.get_attachment(folder, number)
-        delete = input('Would you like to delete this email?[yes/no]')
-        if delete == 'yes':
-            self.client.delete_email(folder, number)
-            self.make_emails_list(folder)
-        get_back = input('Would you like to return to emails list?[yes/no]')
-        if get_back == 'yes':
-            self.choose_email(folder)
-
-    def append(self, folder):
-        self.client.select.execute(folder)
-        sender = input('Print sender: ')
-        receiver = input('Print receiver: ')
-        subject = input('Print subject: ')
-        message = input('Print your message: ')
-        self.client.append.execute(folder, message, sender, receiver, subject)
 
 
 def main():
-    client = imap_client_cli()
+    client = ImapClientCLI()
 
 
 if __name__ == '__main__':

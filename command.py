@@ -19,7 +19,7 @@ class Command(metaclass=ABCMeta):
 
     def get_data(self, *args):
         command = self.make_command(*args)
-        self.sock.sendall(('a' + str(Command.counter) + ' ' + command + '\r\n')
+        self.sock.sendall(('a{0} {1}\r\n'.format(Command.counter, command))
                           .encode())
         data = ''
         while True:
@@ -78,8 +78,11 @@ class Select(Command):
         return self.process_data(data)
 
     def process_data(self, data):
-        count = int(re.match('.+?(\d+) EXISTS.+?', data, re.DOTALL).group(1))
-        return count
+        count = re.match('.+?(\d+) EXISTS.+?', data, re.DOTALL)
+        if count:
+            if count.group(1):
+                return int(count.group(1))
+        return 0
 
 
 class Fetch(Command):
@@ -95,8 +98,8 @@ class Fetch(Command):
 
     def get_file(self, uid, part):
         self.sock.sendall(
-            ('a' + str(Command.counter) + ' ' + 'FETCH {0} {1}\r\n')
-            .format(uid, part).encode())
+            ('a{0} FETCH {1} {2}\r\n')
+            .format(Command.counter, uid, part).encode())
         data = b''
         while True:
             try:
@@ -122,7 +125,8 @@ class Fetch(Command):
     def parse_text(self, data):
         text = text_regex.match(data)
         if text is None:
-            return append_text_regex.match(data).group(1)
+            if append_text_regex.match(data):
+                return append_text_regex.match(data).group(1)
         if text.group(3):
             text = self.decode_strings(text.group(4), text.group(3),
                                        text.group(1))
@@ -177,7 +181,8 @@ class Append(Command):
         self.sock.sendall('From: {}\r\n'.format(sender).encode())
         self.sock.sendall('To: {}\r\n'.format(receiver).encode())
         self.sock.sendall('Subject: {}\r\n'.format(subject).encode())
-        self.sock.sendall('Content-Type: TEXT/PLAIN; CHARSET=UTF-8\r\n'.encode())
+        self.sock.sendall('Content-Type: TEXT/PLAIN; CHARSET=UTF-8\r\n'
+                          .encode())
         self.sock.sendall('\r\n'.encode())
         self.sock.sendall('{0}\r\n'.format(message).encode())
         self.sock.sendall('\r\n'.encode())

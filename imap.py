@@ -4,7 +4,7 @@ import re
 import command
 
 
-class imap_client:
+class ImapClient:
     def __init__(self, ip, port, login, password):
         self.sock = self.get_socket(ip, port)
         self.login = command.Login(self.sock)
